@@ -27,7 +27,5 @@ Rowify is built for that world — where simplicity, clarity, and human judgment
 - Export your WhatsApp chat as .txt
 - Upload it to Rowify
 - Review the parsed table
-
-Download the Excel file with review flags
-
-Make quick, confident decisions
+- Download the Excel file with review flags
+- Make quick, confident decisions
