@@ -23,9 +23,16 @@ In the real world, a tool that reliably reduces manual work
 is often better than a technically elegant system that breaks in edge cases or never reaches users.
 Rowify is built for that world — where simplicity, clarity, and human judgment matter most.
 
-### 🚀 Usage
+### 🚀 Usage (~25–30 minutes)
 - Export your WhatsApp chat as .txt
 - Upload it to Rowify
 - Review the parsed table
 - Download the Excel file with review flags
 - Make quick, confident decisions
+
+### 😭 Before Rowify (~2 hours)
+• Read hundreds of WhatsApp messages manually
+• Copy into Excel
+• Split fields
+• Correct inconsistencies
+• Create reports
