@@ -72,7 +72,7 @@ def merge_messages(lines):
         ts_str, sender, msg = parse_whatsapp_line(line)
         if ts_str and sender and msg:
             if current_ts is not None:
-                merged.append((current_ts, current_sender, " ".join(current_msg)))
+                merged.append((current_ts, current_sender, "\n".join(current_msg)))
             current_ts = ts_str
             current_sender = sender
             current_msg = [msg]
@@ -81,13 +81,23 @@ def merge_messages(lines):
                 current_msg.append(line.strip())
 
     if current_ts is not None:
-        merged.append((current_ts, current_sender, " ".join(current_msg)))
+        merged.append((current_ts, current_sender, "\n".join(current_msg)))
 
     return merged
 
 # ------------------------------------------------------------
-# NEW: DYNAMIC TOKEN PARSING
+# NEW: ADVANCED DYNAMIC TOKEN PARSING
 # ------------------------------------------------------------
+
+SYSTEM_IGNORE = {
+    "THIS MESSAGE WAS DELETED",
+    "MESSAGE WAS DELETED",
+    "EDITED",
+    "MEDIA OMITTED",
+    "GROUP CLOSED",
+    "GROUP OPEN",
+    "REGISTRATION"
+}
 
 def clean_token(token):
     cleaned = re.sub(r"[^\w]", "", token)
@@ -102,16 +112,42 @@ def tokenize_dynamic(msg):
             tokens.append(c)
     return tokens
 
+def split_multi_person(msg):
+    """
+    Split message into multiple persons using newline, semicolon, or pipe.
+    """
+    parts = re.split(r"[\n;|]+", msg)
+    return [p.strip() for p in parts if p.strip()]
+
 def parse_people_from_message(msg):
-    tokens = tokenize_dynamic(msg)
-    if not tokens:
+    msg_upper = msg.upper()
+
+    # Ignore system messages entirely
+    if any(key in msg_upper for key in SYSTEM_IGNORE):
         return []
 
-    row = {}
-    for i, tok in enumerate(tokens, start=1):
-        row[f"Col{i}"] = tok
+    persons = split_multi_person(msg)
+    rows = []
 
-    return [row]
+    for person in persons:
+        tokens = tokenize_dynamic(person)
+
+        if not tokens:
+            continue
+
+        numeric = [t for t in tokens if t.isdigit()]
+        alpha = [t for t in tokens if t.isalpha()]
+        alnum = [t for t in tokens if not t.isdigit() and not t.isalpha()]
+
+        ordered = numeric + alpha + alnum
+
+        row = {}
+        for i, tok in enumerate(ordered, start=1):
+            row[f"Col{i}"] = tok
+
+        rows.append(row)
+
+    return rows
 
 # ------------------------------------------------------------
 # STREAMLIT UI
@@ -168,7 +204,7 @@ def main():
             st.dataframe(df_filtered, use_container_width=True)
 
             # ------------------------------------------------------------
-            # PRELIMINARY ANALYTICS (NEW)
+            # PRELIMINARY ANALYTICS
             # ------------------------------------------------------------
 
             st.subheader("Preliminary Analysis Summary")
@@ -206,7 +242,7 @@ def main():
                 st.info("No suitable categorical columns found for preliminary charts.")
 
             # ------------------------------------------------------------
-            # DOWNLOAD AS EXCEL (NEW)
+            # DOWNLOAD AS EXCEL
             # ------------------------------------------------------------
 
             def build_excel(df):
@@ -240,7 +276,6 @@ def main():
                 file_name="whatsapp_parsed.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
 
 # ------------------------------------------------------------
 # ENTRYPOINT
