@@ -4,6 +4,8 @@ import re
 from datetime import datetime
 import altair as alt
 import io
+from openpyxl.styles import PatternFill
+from openpyxl.utils import get_column_letter
 
 # ------------------------------------------------------------
 # PAGE CONFIG + HEADER
@@ -32,7 +34,7 @@ Nothing is stored, uploaded, or shared.
 """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# TIMESTAMP PARSING + MERGING (UNCHANGED)
+# TIMESTAMP PARSING + MERGING
 # ------------------------------------------------------------
 
 TS_PATTERN = r"^\d{1,2}/\d{1,2}/\d{2,4},\s\d{1,2}:\d{2}"
@@ -86,7 +88,7 @@ def merge_messages(lines):
     return merged
 
 # ------------------------------------------------------------
-# ADVANCED DYNAMIC TOKEN PARSING (UPDATED)
+# ADVANCED DYNAMIC TOKEN PARSING
 # ------------------------------------------------------------
 
 SYSTEM_IGNORE = {
@@ -97,7 +99,7 @@ SYSTEM_IGNORE = {
     "GROUP CLOSED",
     "GROUP OPEN",
     "REGISTRATION",
-    "CHANGED THIS GROUP'S SETTINGS"
+    "CHANGED GROUP SETTINGS"
 }
 
 def clean_token(token):
@@ -114,14 +116,18 @@ def tokenize_dynamic(msg):
     return tokens
 
 def split_multi_person(msg):
+    """
+    Split ONLY on newline; ignore lines containing TOTAL.
+    """
     parts = msg.split("\n")
     cleaned = []
     for p in parts:
         up = p.upper().strip()
         if "TOTAL" in up:
-            continue   # ignore only this line
-        cleaned.append(p.strip())
-    return [c for c in cleaned if c]
+            continue
+        if p.strip():
+            cleaned.append(p.strip())
+    return cleaned
 
 def parse_people_from_message(msg):
     msg_upper = msg.upper()
@@ -203,13 +209,37 @@ def main():
                     "Raw Message": msg,
                 }
                 base.update(p)
+
+                # Needs Review logic
+                tokens = list(p.values())
+                needs_review = False
+
+                # 1. Col1 should be numeric
+                if tokens and not tokens[0].isdigit():
+                    needs_review = True
+
+                # 2. Too few tokens
+                if len(tokens) < 2:
+                    needs_review = True
+
+                # 3. Mixed leftover tokens (letters+numbers)
+                for t in tokens:
+                    if re.search(r"[A-Za-z]", t) and re.search(r"\d", t):
+                        needs_review = True
+
+                # 4. TOTAL in message
+                if "TOTAL" in msg.upper():
+                    needs_review = True
+
+                base["Needs Review"] = "YES" if needs_review else "NO"
+
                 rows.append(base)
 
         if rows:
             df = pd.DataFrame(rows)
 
             # ------------------------------------------------------------
-            # DATE FILTERS (UNCHANGED)
+            # DATE FILTERS
             # ------------------------------------------------------------
             st.subheader("Select Date & Time Range")
             col1, col2 = st.columns(2)
@@ -230,7 +260,7 @@ def main():
             st.dataframe(df_filtered, use_container_width=True)
 
             # ------------------------------------------------------------
-            # PRELIMINARY ANALYTICS
+            # PRELIMINARY ANALYTICS (light)
             # ------------------------------------------------------------
 
             st.subheader("Preliminary Analysis Summary")
@@ -274,22 +304,45 @@ def main():
             def build_excel(df):
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                    # Parsed Data sheet
                     df.to_excel(writer, sheet_name="Parsed Data", index=False)
 
-                    if cat_cols:
-                        all_counts = []
-                        for col in cat_cols:
-                            vc = df[col].value_counts().reset_index()
-                            vc.columns = [col, "Count"]
-                            vc["Share (%)"] = (vc["Count"] / vc["Count"].sum() * 100).round(1)
-                            vc["Field"] = col
-                            all_counts.append(vc)
+                    # Color formatting for Needs Review
+                    if "Needs Review" in df.columns:
+                        wb = writer.book
+                        ws = writer.sheets["Parsed Data"]
+                        col_idx = df.columns.get_loc("Needs Review") + 1
+                        col_letter = get_column_letter(col_idx)
+                        red_fill = PatternFill(
+                            start_color="FFC7CE",
+                            end_color="FFC7CE",
+                            fill_type="solid"
+                        )
+                        for row in range(2, len(df) + 2):
+                            cell = ws[f"{col_letter}{row}"]
+                            if cell.value == "YES":
+                                cell.fill = red_fill
 
-                        summary_df = pd.concat(all_counts, ignore_index=True)
-                    else:
-                        summary_df = pd.DataFrame({"Info": ["No categorical columns detected."]})
-
-                    summary_df.to_excel(writer, sheet_name="Analytics Summary", index=False)
+                    # Reviewer Notes sheet
+                    notes = [
+                        ["Reviewer Notes"],
+                        [""],
+                        ["Some rows or columns may need human supervision:"],
+                        ["1. Rows marked 'YES' in Needs Review column."],
+                        ["2. Columns with mixed tokens (letters + numbers)."],
+                        ["3. Rows where Col1 is not numeric (age or key missing)."],
+                        ["4. Rows with fewer than 2 tokens (possible incomplete entry)."],
+                        ["5. Rows containing unusual codes (PR, PS, NV, Veg, NonVeg, etc.)."],
+                        ["6. Rows coming from multi-person messages (multiple lines in Raw Message)."],
+                        ["7. Rows related to summary or TOTAL lines in the original chat."],
+                    ]
+                    notes_df = pd.DataFrame(notes)
+                    notes_df.to_excel(
+                        writer,
+                        sheet_name="Reviewer Notes",
+                        header=False,
+                        index=False
+                    )
 
                 output.seek(0)
                 return output
