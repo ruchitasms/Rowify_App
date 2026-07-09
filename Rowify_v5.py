@@ -99,7 +99,8 @@ SYSTEM_IGNORE = {
     "GROUP CLOSED",
     "GROUP OPEN",
     "REGISTRATION",
-    "CHANGED GROUP SETTINGS"
+    "CHANGED THIS GROUP'S SETTINGS",
+    "CANCEL"
 }
 
 def clean_token(token):
