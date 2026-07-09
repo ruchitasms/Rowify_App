@@ -96,7 +96,8 @@ SYSTEM_IGNORE = {
     "MEDIA OMITTED",
     "GROUP CLOSED",
     "GROUP OPEN",
-    "REGISTRATION"
+    "REGISTRATION", 
+    "CHANGED THIS GROUP'S SETTINGS"
 }
 
 def clean_token(token):
@@ -114,9 +115,9 @@ def tokenize_dynamic(msg):
 
 def split_multi_person(msg):
     """
-    Split message into multiple persons using newline, semicolon, or pipe.
+    Split ONLY on newline. No semicolon or pipe splitting.
     """
-    parts = re.split(r"[\n;|]+", msg)
+    parts = msg.split("\n")
     return [p.strip() for p in parts if p.strip()]
 
 def parse_people_from_message(msg):
