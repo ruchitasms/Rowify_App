@@ -12,11 +12,12 @@ from openpyxl.utils import get_column_letter
 # ------------------------------------------------------------
 
 st.set_page_config(
-    page_title="🌼 WhatsApp Data Parser — Final Edition",
+    page_title="🌼 WhatsApp Data Parser — Rowify",
     layout="wide"
 )
 
-st.title("🌼 WhatsApp Data Parser — Final Edition")
+st.title("🌼 Rowify - WhatsApp Data Parser")
+st.markdown("A gentle tool to tidy WhatsApp lists for easy human review")
 
 st.markdown("""
 <div style="
