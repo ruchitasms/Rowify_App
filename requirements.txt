@@ -1,4 +1,6 @@
 streamlit
 pandas
+re
+datetime
 altair
-openpyxl
+io
