@@ -86,7 +86,7 @@ def merge_messages(lines):
     return merged
 
 # ------------------------------------------------------------
-# NEW: ADVANCED DYNAMIC TOKEN PARSING
+# ADVANCED DYNAMIC TOKEN PARSING (UPDATED)
 # ------------------------------------------------------------
 
 SYSTEM_IGNORE = {
@@ -135,9 +135,31 @@ def parse_people_from_message(msg):
         if not tokens:
             continue
 
-        numeric = [t for t in tokens if t.isdigit()]
-        alpha = [t for t in tokens if t.isalpha()]
-        alnum = [t for t in tokens if not t.isdigit() and not t.isalpha()]
+        numeric = []
+        alpha = []
+        alnum = []
+
+        for t in tokens:
+            # Extract number even if mixed (e.g., 54PR)
+            m = re.search(r"\d+", t)
+            if m:
+                numeric.append(m.group())  # number part
+
+                leftover = re.sub(r"\d+", "", t)
+                if leftover:
+                    if leftover.isalpha():
+                        alpha.append(leftover)
+                    else:
+                        alnum.append(leftover)
+                continue
+
+            # Pure alphabetic
+            if t.isalpha():
+                alpha.append(t)
+                continue
+
+            # Everything else
+            alnum.append(t)
 
         ordered = numeric + alpha + alnum
 
